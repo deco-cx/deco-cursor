@@ -1,0 +1,946 @@
+---
+alwaysApply: true
+---
+Este guia mostra como usar o comando `deco call-tool` para orquestrar automações poderosas com MCP tools.
+
+> **📝 Nota:** Este guia usa placeholders genéricos. Você precisará substituir:
+> - `i:xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx` pelo ID real da sua integração
+> - `/deco/default` pelo seu workspace real
+> 
+> Use os comandos de descoberta abaixo para encontrar seus valores reais.
+
+## 🚀 Instalação
+
+```bash
+npm install -g deco-cli
+deco login
+```
+
+## 📍 Descobrindo Seu Workspace
+
+### Verificar Workspace Atual
+
+```bash
+deco whoami
+```
+
+**Output:**
+```
+👤  User Info:
+   💻  ID:        a1b2c3d4-e5f6-7890-abcd-ef1234567890
+   📧  Email:     camara@cascudo.rn.br
+   📚  Name:      Câmara Cascudo
+   🏢  Current Workspace: /users/a1b2c3d4-e5f6-7890-abcd-ef1234567890
+```
+
+O workspace padrão é `/users/{seu-user-id}` (ex: `/users/a1b2c3d4-e5f6-7890-abcd-ef1234567890`). Você também pode ter acesso a workspaces de times como `/deco/default`, `/sua-empresa/producao`, etc.
+
+## 🔍 Descobrindo Integrações e Tools Disponíveis
+
+### Passo 1: Listar Todas as Integrações
+
+```bash
+# Listar integrações em um workspace
+deco call-tool -w /deco/default -i i:integration-management INTEGRATIONS_LIST | jq '.items | map({id, name, appName})'
+```
+
+**Output (resumido):**
+```json
+[
+  {
+    "id": "i:xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+    "name": "github-projects",
+    "appName": "@deco/github-projects"
+  },
+  {
+    "id": "i:databases-management",
+    "name": "Databases",
+    "appName": "@deco/database"
+  }
+  ...
+]
+```
+
+**💡 Dica:** Copie o `id` da integração que você quer usar (ex: `i:xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx` para github-projects) e use-o no parâmetro `-i` dos próximos comandos.
+
+### Passo 2: Descobrir Tools de uma Integração
+
+Existem duas formas:
+
+#### A) Listar tools direto da integração
+
+```bash
+deco call-tool -w /deco/default -i i:integration-management INTEGRATIONS_LIST | \
+  jq '.items[] | select(.name == "github-projects") | .tools | map(.name)'
+```
+
+#### B) Usar a tool de metadados (se disponível)
+
+```bash
+# Usar GET_TOOL_METADATA para ver descrições detalhadas
+deco call-tool -w /deco/default \
+  -i i:xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx \
+  GET_TOOL_METADATA \
+  --set category=all | jq '.tools | map({id, description, category})'
+```
+
+**Output:**
+```json
+[
+  {
+    "id": "LIST_GITHUB_PROJECTS",
+    "description": "List all GitHub Projects V2 for a given organization.",
+    "category": "projects"
+  },
+  {
+    "id": "UPDATE_PROJECT_ITEM_FIELD",
+    "description": "Update a field value for an item in a GitHub Project V2.",
+    "category": "projects"
+  }
+  ...
+]
+```
+
+## 🛠️ Sintaxe do `deco call-tool`
+
+```bash
+deco call-tool [options] <tool-name>
+
+Options:
+  -w, --workspace <workspace>      Workspace name (ex: /deco/default)
+  -i, --integration <integration>  Integration ID (ex: i:xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)
+  -p, --payload <payload>          JSON payload completo
+  --set <key=value>                Define valores individuais (pode usar múltiplas vezes)
+```
+
+### Passando Parâmetros
+
+#### Opção 1: Usando `--set` (para valores simples)
+
+```bash
+deco call-tool -w /deco/default \
+  -i i:xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx \
+  LIST_TRACKED_REPOSITORIES \
+  --set activeOnly=true
+```
+
+#### Opção 2: Usando `-p` com JSON (para estruturas complexas)
+
+```bash
+deco call-tool -w /deco/default \
+  -i i:xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx \
+  UPDATE_PROJECT_ITEM_FIELD \
+  -p '{
+    "projectId": "PVT_kwDOBj_xvs4A_o2I",
+    "itemId": "PVTI_lADOBj_xvs4A_o2IzggGSzg",
+    "fieldId": "PVTSSF_lADOBj_xvs4A_o2IzgyrmJo",
+    "value": "f75ad846",
+    "fieldType": "SINGLE_SELECT"
+  }'
+```
+
+#### Opção 3: Combinando `--set` (múltiplos valores)
+
+```bash
+deco call-tool -w /deco/default \
+  -i i:xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx \
+  ADD_TRACKED_REPOSITORY \
+  --set owner=deco-cx \
+  --set name=sip
+```
+
+## 📚 Exemplos Práticos: GitHub Projects Manager
+
+### Setup Inicial
+
+```bash
+# Salvar IDs importantes em variáveis
+WORKSPACE="/deco/default"
+INTEGRATION_ID="i:xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+```
+
+### 1. Descobrir Tools Disponíveis
+
+```bash
+deco call-tool -w $WORKSPACE -i $INTEGRATION_ID GET_TOOL_METADATA --set category=all | \
+  jq '.tools | group_by(.category) | map({category: .[0].category, tools: map(.id)})'
+```
+
+### 2. Gerenciar Repositórios Trackeados
+
+```bash
+# Listar repositórios trackeados
+deco call-tool -w $WORKSPACE -i $INTEGRATION_ID LIST_TRACKED_REPOSITORIES --set activeOnly=true
+
+# Adicionar novo repositório
+deco call-tool -w $WORKSPACE -i $INTEGRATION_ID ADD_TRACKED_REPOSITORY \
+  --set owner=deco-cx \
+  --set name=sip
+
+# Remover repositório (soft delete)
+deco call-tool -w $WORKSPACE -i $INTEGRATION_ID REMOVE_TRACKED_REPOSITORY \
+  --set id=1 \
+  --set hardDelete=false
+```
+
+### 3. Trabalhar com Projetos
+
+```bash
+# Listar projetos de uma organização
+deco call-tool -w $WORKSPACE -i $INTEGRATION_ID LIST_GITHUB_PROJECTS \
+  --set organizationLogin=deco-cx | jq '.projects[] | {id, title, number}'
+
+# Obter detalhes de um projeto
+deco call-tool -w $WORKSPACE -i $INTEGRATION_ID GET_PROJECT_DETAILS \
+  --set projectId=PVT_kwDOBj_xvs4A_o2I
+```
+
+### 4. Descobrir Campos do Projeto
+
+```bash
+# IMPORTANTE: Execute isso primeiro para saber quais campos e opções usar
+deco call-tool -w $WORKSPACE -i $INTEGRATION_ID LIST_PROJECT_FIELDS \
+  --set projectId=PVT_kwDOBj_xvs4A_o2I | \
+  jq '.fields[] | select(.options) | {name, id, dataType, options}'
+```
+
+**Output:**
+```json
+{
+  "name": "Status",
+  "id": "PVTSSF_lADOBj_xvs4A_o2IzgyrmJo",
+  "dataType": "SINGLE_SELECT",
+  "options": [
+    {"id": "f75ad846", "name": "Todo"},
+    {"id": "47fc9ee4", "name": "In Progress"},
+    {"id": "98236657", "name": "Done"}
+  ]
+}
+```
+
+### 5. Atualizar Campos de Items
+
+#### Status (SINGLE_SELECT)
+```bash
+deco call-tool -w $WORKSPACE -i $INTEGRATION_ID UPDATE_PROJECT_ITEM_FIELD \
+  -p '{
+    "projectId": "PVT_kwDOBj_xvs4A_o2I",
+    "itemId": "PVTI_lADOBj_xvs4A_o2IzggGSzg",
+    "fieldId": "PVTSSF_lADOBj_xvs4A_o2IzgyrmJo",
+    "value": "47fc9ee4",
+    "fieldType": "SINGLE_SELECT"
+  }'
+```
+
+#### Priority (SINGLE_SELECT)
+```bash
+deco call-tool -w $WORKSPACE -i $INTEGRATION_ID UPDATE_PROJECT_ITEM_FIELD \
+  -p '{
+    "projectId": "PVT_kwDOBj_xvs4A_o2I",
+    "itemId": "PVTI_lADOBj_xvs4A_o2IzggGSzg",
+    "fieldId": "PVTSSF_lADOBj_xvs4A_o2IzgyrmWk",
+    "value": "99201ee9",
+    "fieldType": "SINGLE_SELECT"
+  }'
+```
+
+#### Data de Início (DATE)
+```bash
+deco call-tool -w $WORKSPACE -i $INTEGRATION_ID UPDATE_PROJECT_ITEM_FIELD \
+  -p '{
+    "projectId": "PVT_kwDOBj_xvs4A_o2I",
+    "itemId": "PVTI_lADOBj_xvs4A_o2IzggGSzg",
+    "fieldId": "PVTF_lADOBj_xvs4A_o2IzgyrmW0",
+    "value": "2025-10-31",
+    "fieldType": "DATE"
+  }'
+```
+
+#### Estimate (NUMBER)
+```bash
+deco call-tool -w $WORKSPACE -i $INTEGRATION_ID UPDATE_PROJECT_ITEM_FIELD \
+  -p '{
+    "projectId": "PVT_kwDOBj_xvs4A_o2I",
+    "itemId": "PVTI_lADOBj_xvs4A_o2IzggGSzg",
+    "fieldId": "PVTF_lADOBj_xvs4A_o2IzgyrmWs",
+    "value": 8,
+    "fieldType": "NUMBER"
+  }'
+```
+
+## 🎯 Workflows Completos: Orquestrando Múltiplas Chamadas
+
+### Workflow 1: Mover Issue para Projeto e Configurar
+
+```bash
+#!/bin/bash
+set -e
+
+WORKSPACE="/deco/default"
+INTEGRATION_ID="i:xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+PROJECT_ID="PVT_kwDOBj_xvs4A_o2I"
+
+# 1. Buscar issue
+ISSUE=$(deco call-tool -w $WORKSPACE -i $INTEGRATION_ID GET_ISSUE \
+  --set owner=deco-cx \
+  --set name=sip \
+  --set number=101)
+
+CONTENT_ID=$(echo $ISSUE | jq -r '.issue.id')
+echo "✓ Issue encontrada: $CONTENT_ID"
+
+# 2. Adicionar issue ao projeto
+ITEM=$(deco call-tool -w $WORKSPACE -i $INTEGRATION_ID ADD_ITEM_TO_PROJECT \
+  -p "{\"projectId\":\"$PROJECT_ID\",\"contentId\":\"$CONTENT_ID\"}")
+
+ITEM_ID=$(echo $ITEM | jq -r '.item.id')
+echo "✓ Issue adicionada ao projeto: $ITEM_ID"
+
+# 3. Configurar status para "In Progress"
+deco call-tool -w $WORKSPACE -i $INTEGRATION_ID UPDATE_PROJECT_ITEM_FIELD \
+  -p "{
+    \"projectId\":\"$PROJECT_ID\",
+    \"itemId\":\"$ITEM_ID\",
+    \"fieldId\":\"PVTSSF_lADOBj_xvs4A_o2IzgyrmJo\",
+    \"value\":\"47fc9ee4\",
+    \"fieldType\":\"SINGLE_SELECT\"
+  }"
+echo "✓ Status configurado"
+
+# 4. Configurar priority para P1
+deco call-tool -w $WORKSPACE -i $INTEGRATION_ID UPDATE_PROJECT_ITEM_FIELD \
+  -p "{
+    \"projectId\":\"$PROJECT_ID\",
+    \"itemId\":\"$ITEM_ID\",
+    \"fieldId\":\"PVTSSF_lADOBj_xvs4A_o2IzgyrmWk\",
+    \"value\":\"99201ee9\",
+    \"fieldType\":\"SINGLE_SELECT\"
+  }"
+echo "✓ Priority configurada"
+
+# 5. Configurar datas
+deco call-tool -w $WORKSPACE -i $INTEGRATION_ID UPDATE_PROJECT_ITEM_FIELD \
+  -p "{
+    \"projectId\":\"$PROJECT_ID\",
+    \"itemId\":\"$ITEM_ID\",
+    \"fieldId\":\"PVTF_lADOBj_xvs4A_o2IzgyrmW0\",
+    \"value\":\"$(date +%Y-%m-%d)\",
+    \"fieldType\":\"DATE\"
+  }"
+echo "✓ Start date configurada"
+
+echo "🎉 Workflow completo!"
+```
+
+### Workflow 2: Relatório de Status do Projeto
+
+```bash
+#!/bin/bash
+
+WORKSPACE="/deco/default"
+INTEGRATION_ID="i:xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+PROJECT_ID="PVT_kwDOBj_xvs4A_o2I"
+
+echo "📊 Relatório de Status do Projeto"
+echo "=================================="
+
+# 1. Pegar detalhes do projeto
+PROJECT=$(deco call-tool -w $WORKSPACE -i $INTEGRATION_ID GET_PROJECT_DETAILS \
+  --set projectId=$PROJECT_ID)
+
+echo "Projeto: $(echo $PROJECT | jq -r '.project.title')"
+echo "Total de items: $(echo $PROJECT | jq -r '.project.itemsCount')"
+echo ""
+
+# 2. Listar items
+ITEMS=$(deco call-tool -w $WORKSPACE -i $INTEGRATION_ID LIST_PROJECT_ITEMS \
+  -p "{\"projectId\":\"$PROJECT_ID\",\"first\":100}")
+
+# 3. Contar por status
+echo "Status breakdown:"
+echo $ITEMS | jq -r '.items[] | .state' | sort | uniq -c
+
+# 4. Listar issues abertas
+echo ""
+echo "Issues OPEN:"
+echo $ITEMS | jq -r '.items[] | select(.state == "OPEN") | "  #\(.number) - \(.title)"'
+```
+
+### Workflow 3: Batch Update - Mover Múltiplas Issues
+
+```bash
+#!/bin/bash
+
+WORKSPACE="/deco/default"
+INTEGRATION_ID="i:xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+PROJECT_ID="PVT_kwDOBj_xvs4A_o2I"
+STATUS_FIELD_ID="PVTSSF_lADOBj_xvs4A_o2IzgyrmJo"
+DONE_OPTION_ID="98236657"
+
+# Ler item IDs de um arquivo ou array
+ITEM_IDS=(
+  "PVTI_lADOBj_xvs4A_o2IzggGSzg"
+  "PVTI_lADOBj_xvs4A_o2IzgfRm7g"
+)
+
+echo "🔄 Movendo ${#ITEM_IDS[@]} items para Done..."
+
+for ITEM_ID in "${ITEM_IDS[@]}"; do
+  echo "  Processando $ITEM_ID..."
+  deco call-tool -w $WORKSPACE -i $INTEGRATION_ID UPDATE_PROJECT_ITEM_FIELD \
+    -p "{
+      \"projectId\":\"$PROJECT_ID\",
+      \"itemId\":\"$ITEM_ID\",
+      \"fieldId\":\"$STATUS_FIELD_ID\",
+      \"value\":\"$DONE_OPTION_ID\",
+      \"fieldType\":\"SINGLE_SELECT\"
+    }" > /dev/null
+  echo "  ✓ $ITEM_ID movido para Done"
+done
+
+echo "🎉 Todas as issues foram movidas!"
+```
+
+## 💡 Dicas Avançadas
+
+### 1. Salvar Outputs em Variáveis
+
+```bash
+# Capturar output e processar com jq
+PROJECT_ID=$(deco call-tool -w $WORKSPACE -i $INTEGRATION_ID LIST_GITHUB_PROJECTS \
+  --set organizationLogin=deco-cx | \
+  jq -r '.projects[] | select(.title == "js-brasil") | .id')
+
+echo "Project ID: $PROJECT_ID"
+```
+
+### 2. Usar jq para Filtros Complexos
+
+```bash
+# Encontrar todos os campos de data
+deco call-tool -w $WORKSPACE -i $INTEGRATION_ID LIST_PROJECT_FIELDS \
+  --set projectId=$PROJECT_ID | \
+  jq '.fields[] | select(.dataType == "DATE") | {name, id}'
+```
+
+### 3. Criar Aliases para Comandos Comuns
+
+```bash
+# Adicionar ao seu ~/.bashrc ou ~/.zshrc
+alias deco-gh='deco call-tool -w /deco/default -i i:xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'
+
+# Usar:
+deco-gh LIST_TRACKED_REPOSITORIES --set activeOnly=true
+```
+
+### 4. Processar Resultados com Loops
+
+```bash
+# Processar cada projeto
+deco call-tool -w $WORKSPACE -i $INTEGRATION_ID LIST_GITHUB_PROJECTS \
+  --set organizationLogin=deco-cx | \
+  jq -r '.projects[] | .id' | \
+  while read PROJECT_ID; do
+    echo "Processing project: $PROJECT_ID"
+    # Fazer algo com cada projeto
+  done
+```
+
+## 🔑 Referência Rápida de Field Types
+
+| Field Type | Formato do Value | Exemplo |
+|------------|------------------|---------|
+| SINGLE_SELECT | Option ID (string) | `"47fc9ee4"` |
+| DATE | ISO 8601 (YYYY-MM-DD) | `"2025-10-31"` |
+| NUMBER | Number | `8` |
+| TEXT | String | `"Some text"` |
+| ITERATION | Iteration ID | `"PVTIT_xxx"` |
+| null | Clear field | `null` |
+
+## 🤖 Orquestração Avançada com Scripts Deno
+
+Para workflows complexos, crie scripts Deno que salvam resultados intermediários em JSON. Isso:
+- ✅ Evita encher a janela de contexto do agente
+- ✅ Permite debugging de cada etapa
+- ✅ Facilita reprocessamento sem refazer tudo
+- ✅ Mantém histórico de operações
+
+### Estrutura de Diretórios Recomendada
+
+```
+projeto/
+├── automation/
+│   ├── scripts/           # Scripts executáveis
+│   │   ├── 01-fetch-projects.ts
+│   │   ├── 02-process-items.ts
+│   │   └── 03-generate-report.ts
+│   ├── data/             # Dados intermediários
+│   │   ├── projects.json
+│   │   ├── items.json
+│   │   └── processed-results.json
+│   └── reports/          # Relatórios finais
+│       └── 2025-10-21-status-report.md
+```
+
+### Exemplo 1: Script para Buscar e Salvar Projetos
+
+```typescript
+#!/usr/bin/env -S deno run --allow-all
+
+// automation/scripts/01-fetch-projects.ts
+
+interface Project {
+  id: string;
+  title: string;
+  number: number;
+  url: string;
+}
+
+const WORKSPACE = "/deco/default";
+const INTEGRATION_ID = "i:xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx";
+const OUTPUT_FILE = "./automation/data/projects.json";
+
+console.log("📥 Fetching projects from deco-cx organization...");
+
+// Executar deco call-tool e capturar output
+const cmd = new Deno.Command("deco", {
+  args: [
+    "call-tool",
+    "-w", WORKSPACE,
+    "-i", INTEGRATION_ID,
+    "LIST_GITHUB_PROJECTS",
+    "--set", "organizationLogin=deco-cx",
+    "--set", "first=50"
+  ],
+  stdout: "piped",
+  stderr: "piped",
+});
+
+const { stdout, stderr, success } = await cmd.output();
+
+if (!success) {
+  console.error("❌ Error:", new TextDecoder().decode(stderr));
+  Deno.exit(1);
+}
+
+const result = JSON.parse(new TextDecoder().decode(stdout));
+
+// Salvar resultado
+await Deno.mkdir("./automation/data", { recursive: true });
+await Deno.writeTextFile(
+  OUTPUT_FILE,
+  JSON.stringify(result.projects, null, 2)
+);
+
+console.log(`✅ Saved ${result.projects.length} projects to ${OUTPUT_FILE}`);
+
+// Mostrar resumo
+console.log("\nProjects found:");
+result.projects.forEach((p: Project) => {
+  console.log(`  - ${p.title} (${p.id})`);
+});
+```
+
+**Executar:**
+```bash
+deno run --allow-all automation/scripts/01-fetch-projects.ts
+```
+
+### Exemplo 2: Script para Processar Dados Salvos
+
+```typescript
+#!/usr/bin/env -S deno run --allow-all
+
+// automation/scripts/02-process-items.ts
+
+const WORKSPACE = "/deco/default";
+const INTEGRATION_ID = "i:xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx";
+const PROJECTS_FILE = "./automation/data/projects.json";
+const OUTPUT_FILE = "./automation/data/items.json";
+
+interface Project {
+  id: string;
+  title: string;
+}
+
+interface Item {
+  id: string;
+  type: string;
+  title?: string;
+  state?: string;
+  number?: number;
+  projectTitle: string;
+}
+
+console.log("📖 Reading projects from file...");
+
+// Ler projetos salvos anteriormente
+const projectsData = await Deno.readTextFile(PROJECTS_FILE);
+const projects: Project[] = JSON.parse(projectsData);
+
+console.log(`Found ${projects.length} projects`);
+
+const allItems: Item[] = [];
+
+// Processar cada projeto
+for (const project of projects) {
+  console.log(`\n📦 Processing project: ${project.title}`);
+  
+  const cmd = new Deno.Command("deco", {
+    args: [
+      "call-tool",
+      "-w", WORKSPACE,
+      "-i", INTEGRATION_ID,
+      "LIST_PROJECT_ITEMS",
+      "-p", JSON.stringify({
+        projectId: project.id,
+        first: 100
+      })
+    ],
+    stdout: "piped",
+    stderr: "piped",
+  });
+
+  const { stdout, success } = await cmd.output();
+  
+  if (!success) {
+    console.error(`  ⚠️  Failed to fetch items for ${project.title}`);
+    continue;
+  }
+
+  const result = JSON.parse(new TextDecoder().decode(stdout));
+  
+  // Adicionar contexto do projeto a cada item
+  const itemsWithContext = result.items.map((item: any) => ({
+    ...item,
+    projectTitle: project.title,
+  }));
+  
+  allItems.push(...itemsWithContext);
+  console.log(`  ✓ Found ${result.items.length} items`);
+}
+
+// Salvar todos os items
+await Deno.mkdir("./automation/data", { recursive: true });
+await Deno.writeTextFile(
+  OUTPUT_FILE,
+  JSON.stringify(allItems, null, 2)
+);
+
+console.log(`\n✅ Saved ${allItems.length} total items to ${OUTPUT_FILE}`);
+
+// Estatísticas
+const byState = allItems.reduce((acc, item) => {
+  acc[item.state || 'unknown'] = (acc[item.state || 'unknown'] || 0) + 1;
+  return acc;
+}, {} as Record<string, number>);
+
+console.log("\n📊 Items by state:");
+Object.entries(byState).forEach(([state, count]) => {
+  console.log(`  ${state}: ${count}`);
+});
+```
+
+### Exemplo 3: Gerar Relatório dos Dados Processados
+
+```typescript
+#!/usr/bin/env -S deno run --allow-all
+
+// automation/scripts/03-generate-report.ts
+
+const ITEMS_FILE = "./automation/data/items.json";
+const REPORT_DIR = "./automation/reports";
+
+interface Item {
+  id: string;
+  type: string;
+  title?: string;
+  state?: string;
+  number?: number;
+  projectTitle: string;
+}
+
+console.log("📊 Generating status report...");
+
+// Ler items processados
+const itemsData = await Deno.readTextFile(ITEMS_FILE);
+const items: Item[] = JSON.parse(itemsData);
+
+// Agrupar por projeto e estado
+const byProject = items.reduce((acc, item) => {
+  if (!acc[item.projectTitle]) {
+    acc[item.projectTitle] = { OPEN: 0, CLOSED: 0, total: 0 };
+  }
+  
+  if (item.state === "OPEN") acc[item.projectTitle].OPEN++;
+  if (item.state === "CLOSED") acc[item.projectTitle].CLOSED++;
+  acc[item.projectTitle].total++;
+  
+  return acc;
+}, {} as Record<string, { OPEN: number; CLOSED: number; total: number }>);
+
+// Gerar markdown report
+const date = new Date().toISOString().split('T')[0];
+let markdown = `# GitHub Projects Status Report\n\n`;
+markdown += `Generated: ${date}\n\n`;
+markdown += `## Summary\n\n`;
+markdown += `Total items: ${items.length}\n\n`;
+
+markdown += `## By Project\n\n`;
+for (const [project, stats] of Object.entries(byProject)) {
+  const completion = Math.round((stats.CLOSED / stats.total) * 100);
+  markdown += `### ${project}\n\n`;
+  markdown += `- Total: ${stats.total}\n`;
+  markdown += `- Open: ${stats.OPEN}\n`;
+  markdown += `- Closed: ${stats.CLOSED}\n`;
+  markdown += `- Completion: ${completion}%\n\n`;
+}
+
+// Listar items abertos por projeto
+markdown += `## Open Items\n\n`;
+for (const [project, stats] of Object.entries(byProject)) {
+  const openItems = items.filter(i => 
+    i.projectTitle === project && i.state === "OPEN"
+  );
+  
+  if (openItems.length > 0) {
+    markdown += `### ${project}\n\n`;
+    openItems.forEach(item => {
+      markdown += `- #${item.number} - ${item.title}\n`;
+    });
+    markdown += `\n`;
+  }
+}
+
+// Salvar relatório
+await Deno.mkdir(REPORT_DIR, { recursive: true });
+const reportFile = `${REPORT_DIR}/${date}-status-report.md`;
+await Deno.writeTextFile(reportFile, markdown);
+
+console.log(`✅ Report saved to ${reportFile}`);
+console.log("\nPreview:");
+console.log(markdown);
+```
+
+### Exemplo 4: Script Completo de Orquestração
+
+```typescript
+#!/usr/bin/env -S deno run --allow-all
+
+// automation/scripts/run-full-pipeline.ts
+
+console.log("🚀 Starting full automation pipeline\n");
+
+const scripts = [
+  "01-fetch-projects.ts",
+  "02-process-items.ts",
+  "03-generate-report.ts",
+];
+
+for (const script of scripts) {
+  console.log(`\n${"=".repeat(60)}`);
+  console.log(`Running: ${script}`);
+  console.log("=".repeat(60) + "\n");
+  
+  const cmd = new Deno.Command("deno", {
+    args: ["run", "--allow-all", `./automation/scripts/${script}`],
+    stdout: "inherit",
+    stderr: "inherit",
+  });
+  
+  const { success } = await cmd.output();
+  
+  if (!success) {
+    console.error(`\n❌ Failed at step: ${script}`);
+    Deno.exit(1);
+  }
+}
+
+console.log("\n" + "=".repeat(60));
+console.log("✅ Pipeline completed successfully!");
+console.log("=".repeat(60));
+```
+
+### Exemplo 5: Script com Cache Inteligente
+
+```typescript
+#!/usr/bin/env -S deno run --allow-all
+
+// automation/scripts/fetch-with-cache.ts
+
+const CACHE_DIR = "./automation/data/cache";
+const CACHE_DURATION = 3600 * 1000; // 1 hora em ms
+
+interface CacheEntry<T> {
+  timestamp: number;
+  data: T;
+}
+
+async function getCached<T>(
+  key: string,
+  fetcher: () => Promise<T>,
+  maxAge: number = CACHE_DURATION
+): Promise<T> {
+  const cacheFile = `${CACHE_DIR}/${key}.json`;
+  
+  try {
+    // Tentar ler do cache
+    const cached = await Deno.readTextFile(cacheFile);
+    const entry: CacheEntry<T> = JSON.parse(cached);
+    
+    // Verificar se ainda é válido
+    if (Date.now() - entry.timestamp < maxAge) {
+      console.log(`📦 Using cached data for ${key}`);
+      return entry.data;
+    }
+  } catch {
+    // Cache não existe ou é inválido
+  }
+  
+  // Buscar dados novos
+  console.log(`🔄 Fetching fresh data for ${key}`);
+  const data = await fetcher();
+  
+  // Salvar no cache
+  await Deno.mkdir(CACHE_DIR, { recursive: true });
+  await Deno.writeTextFile(
+    cacheFile,
+    JSON.stringify({
+      timestamp: Date.now(),
+      data,
+    } as CacheEntry<T>, null, 2)
+  );
+  
+  return data;
+}
+
+// Exemplo de uso
+const projects = await getCached(
+  "projects-deco-cx",
+  async () => {
+    const cmd = new Deno.Command("deco", {
+      args: [
+        "call-tool",
+        "-w", "/deco/default",
+        "-i", "i:xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+        "LIST_GITHUB_PROJECTS",
+        "--set", "organizationLogin=deco-cx"
+      ],
+      stdout: "piped",
+    });
+    
+    const { stdout } = await cmd.output();
+    const result = JSON.parse(new TextDecoder().decode(stdout));
+    return result.projects;
+  },
+  3600 * 1000 // 1 hora
+);
+
+console.log(`Found ${projects.length} projects`);
+```
+
+### Padrões de Nomenclatura
+
+**Scripts:**
+- Use números como prefixos para ordem de execução: `01-`, `02-`, `03-`
+- Use verbos descritivos: `fetch-`, `process-`, `generate-`, `update-`
+- Use kebab-case: `fetch-projects.ts`, `update-item-status.ts`
+
+**Arquivos de dados:**
+- Use substantivos descritivos: `projects.json`, `items.json`
+- Inclua timestamp para histórico: `projects-2025-10-21.json`
+- Organize em subpastas: `data/github/`, `data/processed/`
+
+**Relatórios:**
+- Inclua data no nome: `2025-10-21-status-report.md`
+- Use formato consistente: `YYYY-MM-DD-description.md`
+- Organize por tipo: `reports/weekly/`, `reports/monthly/`
+
+### Benefícios desta Abordagem
+
+1. **Contexto Limpo**: Não polui a janela do agente com outputs grandes
+2. **Debugging Fácil**: Cada etapa tem output verificável
+3. **Reprocessamento**: Pode reprocessar sem refazer chamadas caras
+4. **Histórico**: Mantém registro de todas as operações
+5. **Modular**: Fácil adicionar, remover ou modificar etapas
+6. **Compartilhável**: Scripts podem ser versionados e compartilhados
+
+### Template Rápido para Novos Scripts
+
+```typescript
+#!/usr/bin/env -S deno run --allow-all
+
+// automation/scripts/template.ts
+
+const WORKSPACE = "/deco/default";
+const INTEGRATION_ID = "i:xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx";
+
+async function callTool(toolName: string, params: Record<string, any>) {
+  const cmd = new Deno.Command("deco", {
+    args: [
+      "call-tool",
+      "-w", WORKSPACE,
+      "-i", INTEGRATION_ID,
+      toolName,
+      "-p", JSON.stringify(params)
+    ],
+    stdout: "piped",
+    stderr: "piped",
+  });
+
+  const { stdout, stderr, success } = await cmd.output();
+  
+  if (!success) {
+    throw new Error(new TextDecoder().decode(stderr));
+  }
+
+  return JSON.parse(new TextDecoder().decode(stdout));
+}
+
+async function saveData(filename: string, data: any) {
+  const dir = "./automation/data";
+  await Deno.mkdir(dir, { recursive: true });
+  await Deno.writeTextFile(
+    `${dir}/${filename}`,
+    JSON.stringify(data, null, 2)
+  );
+}
+
+async function loadData<T>(filename: string): Promise<T> {
+  const content = await Deno.readTextFile(`./automation/data/${filename}`);
+  return JSON.parse(content);
+}
+
+// Seu código aqui
+console.log("🚀 Starting automation...");
+
+try {
+  // Exemplo: Buscar e salvar
+  const result = await callTool("LIST_TRACKED_REPOSITORIES", {
+    activeOnly: true
+  });
+  
+  await saveData("repositories.json", result.repositories);
+  console.log("✅ Done!");
+} catch (error) {
+  console.error("❌ Error:", error.message);
+  Deno.exit(1);
+}
+```
+
+## 🎓 Próximos Passos
+
+1. **Explore outras integrações**: Use `INTEGRATIONS_LIST` para descobrir o que mais está disponível
+2. **Crie scripts Deno**: Orquestre workflows complexos salvando resultados intermediários
+3. **Use em CI/CD**: Integre tool calls em seus pipelines de deployment
+4. **Crie dashboards**: Combine com ferramentas de visualização para relatórios
+
+## 📖 Recursos Adicionais
+
+- Documentação completa: `deco call-tool -h`
+- Lista de integrações: `deco call-tool -w <workspace> -i i:integration-management INTEGRATIONS_LIST`
+- Metadados de tools: Use `GET_TOOL_METADATA` quando disponível
+
+---
+
+**Dica Final:** Cole este guia no Cursor e peça para o AI criar workflows customizados para suas necessidades específicas! 🚀

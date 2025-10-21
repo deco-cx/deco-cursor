@@ -1,0 +1,55 @@
+{
+  "workspace": "/YOUR-WORKSPACE-PATH",
+  "projectName": "Your Project Name",
+  "projectSlug": "your-project-slug",
+  "description": "Description of your project",
+  "priorityIntegrations": [
+    {
+      "id": "i:ai-generation",
+      "name": "ai-generation",
+      "category": "core",
+      "comment": "AI text and object generation"
+    },
+    {
+      "id": "i:databases-management",
+      "name": "databases",
+      "category": "core",
+      "comment": "Database operations"
+    },
+    {
+      "id": "i:workflows-management",
+      "name": "workflows",
+      "category": "core",
+      "comment": "Workflow management"
+    },
+    {
+      "id": "i:http",
+      "name": "http",
+      "category": "core",
+      "comment": "HTTP requests"
+    }
+  ],
+  "includePatterns": [
+    "your-pattern-1",
+    "your-pattern-2"
+  ],
+  "outputFile": "available-tools.json",
+  "_comments": {
+    "workspace": "⚠️  IMPORTANTE: Use o workspace do PROJETO, não o pessoal!",
+    "workspace_examples": [
+      "/sua-empresa/default",
+      "/nome-do-time/producao",
+      "/projeto-especifico/workspace"
+    ],
+    "workspace_how_to_find": [
+      "1. Abra o Deco Chat no browser",
+      "2. Veja a URL: chat.deco.cx/WORKSPACE-AQUI",
+      "3. Ou pergunte ao admin do projeto qual é o workspace",
+      "4. deco whoami mostra seu workspace PESSOAL (geralmente /users/id), NÃO use esse!"
+    ],
+    "priorityIntegrations": "List available: deco call-tool -w /your-workspace -i i:integration-management INTEGRATIONS_LIST",
+    "includePatterns": "Patterns to match in integration appName (case-insensitive)",
+    "category": "Just for organization: core, custom, external, etc."
+  }
+}
+

@@ -1,0 +1,13 @@
+---
+alwaysApply: true
+---
+
+Verifique que o workspace atual está setado. Olhe a pasta scripts/ para entender como funciona, em especial o setup
+
+O objetivo desse projeto é editar, criar e aprimorar as tools, views e workflows existentes. Como boa parte desse sucesso depende das tools calls internas que as views, tools, e workflows fazem, é fundamental que vc use o deco call-tool para testar as coisas antes de editar o arquivo.
+
+Crie scripts/ com scripts deno typescript para alguma utilidade que veja como necessario
+
+Salve as respostas em tmp/ em .json, leia esses jsons quando necessario.
+
+Temos uma rule sobre workflows e ela deve ser seguida

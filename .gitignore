@@ -1,0 +1,41 @@
+# Temporary files and results
+tmp/
+*.tmp
+
+# Generated tool catalogs
+available-tools.json
+
+# Node/Deno dependencies
+node_modules/
+.deno/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Build artifacts
+dist/
+build/
+out/
+
+# Log files
+*.log
+logs/
+
+# Runtime data
+pids/
+*.seed
+*.pid.lock

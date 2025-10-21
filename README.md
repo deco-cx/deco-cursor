@@ -52,10 +52,10 @@ cd deco-cursor
 Replace `/my-workspace/default` with your **actual** Deco workspace path (from step 2):
 
 ```bash
-deco deconfig pull -w /my-workspace/default --path .
+deco deconfig pull -w /my-workspace/default --path deconfig
 ```
 
-This downloads your workspace's tools, views, and workflows to this repository.
+This downloads your workspace's tools, views, and workflows to the `deconfig` directory.
 
 ### 4. Enable Auto-Sync for Development
 
@@ -67,7 +67,7 @@ Keep your changes synchronized with your Deco workspace in real-time:
 # ⚠️ TRIPLE CHECK: Is /my-workspace/default correct?
 # Don't use deco whoami - use the path from https://chat.deco.cx
 
-deco deconfig push -w /my-workspace/default --path . --watch
+deco deconfig push -w /my-workspace/default --path deconfig --watch
 ```
 
 **Important:** Leave this command running in a terminal window while you develop. The `--watch` flag automatically uploads changes whenever you save files.
@@ -253,7 +253,7 @@ deno run --allow-all scripts/find-tool.ts "TOOL_NAME"
 
 ### 3. Watch Auto-Sync
 ```bash
-deco deconfig push -w /my-workspace/default --path . --watch
+deco deconfig push -w /my-workspace/default --path deconfig --watch
 ```
 
 ### 4. Test Workflow
@@ -371,7 +371,7 @@ deco call-tool -w /my-workspace/default \
 # Make sure push --watch is running
 # Check the terminal where you ran the command
 # Restart it if needed:
-deco deconfig push -w /my-workspace/default --path . --watch
+deco deconfig push -w /my-workspace/default --path deconfig --watch
 ```
 
 ### Workflow execution fails
